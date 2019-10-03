@@ -1,13 +1,13 @@
 # Pilgrim
 
-Versioning for all the files scattered on your pc that you want to backup
+Versioning for all the files scattered on your pc that you want to backup.
 
-Save your shells configurations files in one place and push it to a private remote
+Save your shells configurations files in one place and push it to a private remote.
 
 ### Disclaimer
 
-Don't actually use this.
-This is a project done during my spare time to uncover the `argparse` module
+Don't actually use this.<br />
+This is a project done during my spare time to uncover the `argparse` module.
 
 ## Usage
 
@@ -32,14 +32,14 @@ optional arguments:
 
 Check the repo status and add a file:<br />
 `pilgrim -s --add ./importantFile ../config `<br />
-Check the work done and commit it<br />
+Check the work done and commit it:<br />
 `pilgrim -d --commit "Added important backup files"`<br />
-Push to the remote<br />
+Push to the remote:<br />
 `pilgrim --push`<br />
 
 
 # Pilgrim on an everyday basis
 
 `pilgrim -py --add ./importantFile --commit`<br />
-This will add a file to the repo and push it to the remote with a default commit message<br />
-It won't ask for confirmation<br />
+This will add a file to the repo and push it to the remote with a default commit message.<br />
+It won't ask for confirmation.<br />
