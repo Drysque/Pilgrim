@@ -1,0 +1,178 @@
+#!/bin/python3
+
+import subprocess
+import sys
+import os
+import shutil
+
+from argparse import ArgumentParser
+from datetime import datetime
+from termcolor import colored
+
+REPO = os.path.join(os.path.expanduser('~'), '.pilgrim')
+DEFAULT_MESSAGE = "save of %s" % datetime.now().strftime("%B %d, %Y %H:%M:%S")
+
+parser = ArgumentParser(description=colored("Versioning for all your backups", "yellow", None, ['bold']))
+parser.add_argument('-r', '--repository',
+                    default=REPO,
+                    metavar='path',
+                    help="path of repository where backups are. Default: {}".format(os.path.join('~', '.pilgrim')))
+parser.add_argument('--debug',
+                    action='store_true',
+                    help='print parsing results and exits')
+parser.add_argument('-y', '--yes',
+                    action='store_true',
+                    help='skips confirmation')
+parser.add_argument('-v', '--verbose',
+                    action='store_true',
+                    help='be verbose')
+parser.add_argument('-s', '--status',
+                    action='store_true',
+                    help='perform a status check')
+parser.add_argument('-d', '--diff',
+                    action='store_true',
+                    help='perform a diff')
+parser.add_argument('--add',
+                    default=[],
+                    metavar='file',
+                    nargs='+',
+                    help='files to add')
+parser.add_argument('--commit',
+                    default=None,
+                    metavar='message',
+                    const=DEFAULT_MESSAGE,
+                    action='store',
+                    nargs='?',
+                    help='perfom a commit with a message (optional)')
+parser.add_argument('-p', '--push',
+                    action='store_true',
+                    help='perform a push to remote')
+args = vars(parser.parse_args())
+
+args['repository'] = os.path.abspath(args['repository'])
+
+
+def query_yes(question, end=': '):
+    valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
+    prompt = " [y/n] "
+    while True:
+        print(question + prompt, end=end)
+        try: choice = input().lower()
+        except:
+            print()
+            return False
+        if choice == '': return True
+        elif choice in valid: return valid[choice]
+        else: print("Please respond with 'yes', 'y', 'no', 'n'")
+
+def call_git(commands):
+    fullcommand = ['git', '-C', args['repository']]
+    for c in commands:
+        fullcommand.append(c)
+    verbose("git command: " + str(fullcommand))
+    return subprocess.run(fullcommand).returncode
+
+def log(message, color='yellow', printMessage=True):
+    _log = colored(message, color, None, ['bold'])
+    if printMessage: print(_log)
+    else: return _log
+
+def print_error(message='', exit=True):
+    log("ERROR", color='red')
+    if message: log(message, color='red')
+    if exit: sys.exit(1)
+
+def verbose(message):
+    if not args['verbose']: return
+    _log = colored(message, "yellow")
+    print(_log)
+
+
+if args['debug']:
+    log("DEBUG")
+    print("\trepo path: ", args['repository'])
+    print("\tverbosity: ", args['verbose'])
+    print("\task confirmation: ", not args['yes'])
+    print("\tdisplay status: ", args['status'])
+    print("\tfiles to add: ", args['add'])
+    print("\tdisplay diff: ", args['diff'])
+    print("\tcommit message: ", args['commit'] or '<no commit>')
+    print("\tpush: ", args['push'])
+    sys.exit(0)
+
+git_path = os.path.join(args['repository'], '.git')
+if not os.path.exists(git_path):
+    print_error("It seems like the repository is not a git repository")
+
+if args['status']:
+    log("STATUS")
+    if call_git(['status']) != 0:
+        print_error()
+
+if args['add']:
+    log("ADD")
+
+    to_add = []
+    for f in args['add']:
+        if not os.path.exists(f):
+            print_error(f + " : no such file or directory")
+        else:
+            to_add.append(os.path.abspath(f))
+
+    if not args['yes']:
+        log("CONFIRMATION\nThese files will be added", color='green')
+        for f in to_add: print('\t', f)
+        if not query_yes(log("Is this ok?", color='green', printMessage=False)):
+            print_error("ADD: ABORTED")
+
+    for f in to_add:
+        directory, filename = os.path.split(f)
+        target = os.path.join(args['repository'], filename)
+        copy = shutil.copytree if os.path.isdir(f) else shutil.copy2
+        remove = shutil.rmtree if os.path.isdir(target) else os.remove
+        try:
+            if os.path.exists(target):
+                if not os.path.samefile(f, target):
+                    verbose("Deleting target {} because it already exists".format(target))
+                    remove(target)
+                    verbose("Copying {} to {}".format(f, target))
+                    copy(f, target)
+            else:
+                verbose("Copying {} to {}".format(f, target))
+                copy(f, target)
+        except Exception as e:
+            verbose(e)
+            print_error("Target file already exists and could not be overwritten")
+        verbose("Adding target {} to git repository".format(target))
+        if call_git(['add', target]) != 0:
+            print_error()
+
+if args['diff']:
+    if call_git(['diff']) != 0:
+        print_error()
+
+if args['commit']:
+    log("COMMIT")
+
+    if not args['yes']:
+        log("CONFIRMATION\nThis commit will be performed", color='green')
+        print('\t', args['commit'])
+        if not query_yes(log("Is this ok?", color='green', printMessage=False)):
+            print_error("COMMIT: ABORTED")
+
+    verbose("Committing with {}".format(args['commit']))
+    if call_git(['commit', '-m', args['commit']]) != 0:
+        print_error()
+
+if args['push']:
+    log("PUSH")
+
+    if not args['yes']:
+        log("CONFIRMATION\nA push will be performed", color='green')
+        print("Remember that pilgrim cannot fill the remote credentials for you")
+        if not query_yes(log("Is this ok?", color='green', printMessage=False)):
+            print_error("PUSH: ABORTED")
+
+    verbose("Pushing...")
+    if call_git(['push']) != 0:
+        print_error("PUSH: Could not push. If the remote requires credentials, push yourself with credentials")
