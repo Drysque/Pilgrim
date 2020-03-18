@@ -1,22 +1,21 @@
 #!/bin/python3
 
-import subprocess
-import sys
-import os
-import shutil
+
+import subprocess, sys, os, shutil
 
 from argparse import ArgumentParser
 from datetime import datetime
 from termcolor import colored
 
+
 REPO = os.path.join(os.path.expanduser('~'), '.pilgrim')
-DEFAULT_MESSAGE = "save of %s" % datetime.now().strftime("%B %d, %Y %H:%M:%S")
+DEFAULT_MESSAGE = f"save of {datetime.now().strftime('%B %d, %Y %H:%M:%S')}"
 
 parser = ArgumentParser(description=colored("Versioning for all your backups", "yellow", None, ['bold']))
 parser.add_argument('-r', '--repository',
                     default=REPO,
                     metavar='path',
-                    help="path of repository where backups are. Default: {}".format(os.path.join('~', '.pilgrim')))
+                    help=f"path of repository where backups are. Default: {os.path.join('~', '.pilgrim')}")
 parser.add_argument('--debug',
                     action='store_true',
                     help='print parsing results and exits')
@@ -54,7 +53,7 @@ args['repository'] = os.path.abspath(args['repository'])
 
 def query_yes(question, end=': '):
     valid = {"yes": True, "y": True, "ye": True, "no": False, "n": False}
-    prompt = " [y/n] "
+    prompt = " [Y/n] "
     while True:
         print(question + prompt, end=end)
         try: choice = input().lower()
@@ -66,9 +65,7 @@ def query_yes(question, end=': '):
         else: print("Please respond with 'yes', 'y', 'no', 'n'")
 
 def call_git(commands):
-    fullcommand = ['git', '-C', args['repository']]
-    for c in commands:
-        fullcommand.append(c)
+    fullcommand = ['git', '-C', args['repository']] + commands
     verbose("git command: " + str(fullcommand))
     return subprocess.run(fullcommand).returncode
 
@@ -133,17 +130,17 @@ if args['add']:
         try:
             if os.path.exists(target):
                 if not os.path.samefile(f, target):
-                    verbose("Deleting target {} because it already exists".format(target))
+                    verbose(f"Deleting target {target} because it already exists")
                     remove(target)
-                    verbose("Copying {} to {}".format(f, target))
+                    verbose(f"Copying {f} to {target}")
                     copy(f, target)
             else:
-                verbose("Copying {} to {}".format(f, target))
+                verbose(f"Copying {f} to {target}")
                 copy(f, target)
         except Exception as e:
             verbose(e)
             print_error("Target file already exists and could not be overwritten")
-        verbose("Adding target {} to git repository".format(target))
+        verbose(f"Adding target {target} to git repository")
         if call_git(['add', target]) != 0:
             print_error()
 
@@ -160,7 +157,7 @@ if args['commit']:
         if not query_yes(log("Is this ok?", color='green', printMessage=False)):
             print_error("COMMIT: ABORTED")
 
-    verbose("Committing with {}".format(args['commit']))
+    verbose(f"Committing with {args['commit']}")
     if call_git(['commit', '-m', args['commit']]) != 0:
         print_error()
 
